@@ -1,4 +1,4 @@
-from flask import Flask, render_template,request, redirect, url_for
+from flask import Flask, jsonify, render_template,request, redirect, url_for
 import firebase_admin
 from firebase_admin import credentials, firestore 
 from flask_wtf import FlaskForm
@@ -32,11 +32,27 @@ class chatting(FlaskForm):
 def home():
     return render_template('home.html')
 
+# @app.route('/fetchAll', methods=["GET"])
+# def fetchAll():
+#     docs = db.collection("inventory_updates").stream()
+#     # return json response of all docs:
+#     return docs
+
 @app.route('/fetchAll', methods=["GET"])
 def fetchAll():
-    docs = db.collection("inventory_updates").stream()
-    # return json format of all the docs
-    return {"data": [doc.to_dict() for doc in docs]}
+    try:
+        docs = db.collection("inventory_updates").stream()
+        # Convert the stream to a list of dictionaries
+        data = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        return jsonify({
+            'status': 'success',
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @app.route('/dashboard', methods=["GET", "POST"])
 def dashboard():

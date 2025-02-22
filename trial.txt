@@ -1,0 +1,109 @@
+
+const CONFIG = {
+  GEMINI_API_KEY: 'AIzaSyDbly6_By651ZZu_GUeMPwdIoAnOrxQrsg',
+  EMAIL_RECIPIENT: 'vangara.anirudhbharadwaj@gmail.com', // Replace with your email
+  DOC_TITLE: 'Gemini Response Document'
+};
+
+function doGet(e) {
+  try {
+    // Sample prompt for Gemini
+    const prompt = "Give me a brief overview of artificial intelligence and its current applications.";
+    
+    // Get response from Gemini
+    const geminiResponse = callGeminiAI(prompt);
+    
+    // Create and populate document
+    const docInfo = createDocument(geminiResponse);
+    
+    // Send email
+    sendEmailNotification(docInfo.url, geminiResponse);
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      documentUrl: docInfo.url,
+      message: 'Document created and email sent successfully'
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: error.toString()
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function callGeminiAI(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
+  
+  const payload = {
+    contents: [{
+      parts: [{
+        text: prompt
+      }]
+    }]
+  };
+  
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload)
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const data = JSON.parse(response.getContentText());
+    return data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    Logger.log('Error calling Gemini AI: ' + error);
+    throw new Error('Failed to get response from Gemini AI');
+  }
+}
+
+function createDocument(content) {
+  // Create a new Google Doc
+  const doc = DocumentApp.create(CONFIG.DOC_TITLE);
+  const body = doc.getBody();
+  
+  // Add title
+  body.appendParagraph(CONFIG.DOC_TITLE)
+      .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  
+  // Add timestamp
+  body.appendParagraph(`Generated on: ${new Date().toLocaleString()}`)
+      .setItalic(true);
+  
+  // Add content
+  body.appendParagraph('\n');
+  body.appendParagraph(content);
+  
+  // Save and close the document
+  doc.saveAndClose();
+  
+  return {
+    id: doc.getId(),
+    url: doc.getUrl()
+  };
+}
+
+function sendEmailNotification(documentUrl, content) {
+  const emailSubject = `${CONFIG.DOC_TITLE} - ${new Date().toLocaleDateString()}`;
+  const emailBody = `
+    A new document has been generated with Gemini AI response.
+    
+    Preview of content:
+    ${content.substring(0, 200)}...
+    
+    View the complete document here: ${documentUrl}
+    
+    This is an automated message.
+  `;
+  
+  MailApp.sendEmail({
+    to: CONFIG.EMAIL_RECIPIENT,
+    subject: emailSubject,
+    body: emailBody
+  });
+}
